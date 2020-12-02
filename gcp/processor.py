@@ -87,9 +87,10 @@ class Processor:
         my_cmd = shlex.split('gcloud projects list --format json')
         try:
             results = subprocess.check_output(my_cmd)
-        except ChildProcessError:
-            logging.error("Unable to list GCP projects.")
-            return
+        except subprocess.CalledProcessError as e:
+            logging.error("Unable to list GCP projects. This is a critical error, exiting.")
+            logging.error(str(e))
+            sys.exit()
         for project in json.loads(results):
             self.projects.append(Project(project))
 
@@ -126,12 +127,12 @@ class Processor:
             my_cmd = shlex.split("gcloud resource-manager folders describe " + folder_id + " --format json")
             try:
                 results = subprocess.check_output(my_cmd)
-            except ChildProcessError:
+            except subprocess.CalledProcessError as e:
                 logging.error("Unable to describe Folder {0}".format(folder_id))
+                logging.error(str(e))
                 return
             folder = Folder(json.loads(results))
             self.folders.append(folder)
-            #TODO: Does this make sense?
         return folder
 
     def __add_organization__(self, organization_id):
@@ -140,8 +141,9 @@ class Processor:
             my_cmd = shlex.split("gcloud organizations describe " + organization_id + " --format json")
             try:
                 results = subprocess.check_output(my_cmd)
-            except ChildProcessError:
+            except subprocess.CalledProcessError as e:
                 logging.error("Unable to describe Organization {0}".format(organization_id))
+                logging.error(str(e))
                 return
             org = Organization(json.loads(results))
             self.organizations.append(org)

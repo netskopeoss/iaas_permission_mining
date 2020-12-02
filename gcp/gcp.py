@@ -35,9 +35,10 @@ Written by Colin Estep
 def load_bindings(obj):
     """Loads the IAM bindings for a given GCP object."""
     my_cmd = shlex.split(obj.binding_command)
+    logging.info("Attempting to load bindings for {0}".format(obj))
     try:
         results = subprocess.check_output(my_cmd)
-    except ChildProcessError as e:
+    except subprocess.CalledProcessError as e:
         logging.error(str(e))
         return None
     data = json.loads(results)
@@ -184,8 +185,9 @@ class Project:
         my_cmd = shlex.split("gcloud iam service-accounts list --project " + self.id + " --format json")
         try:
             results = subprocess.check_output(my_cmd)
-        except ChildProcessError:
+        except subprocess.CalledProcessError as e:
             logging.error("Unable to load service accounts for project {0}".format(self.id))
+            logging.error(str(e))
             return
         sa_data = json.loads(results)
         for item in sa_data:
@@ -197,8 +199,9 @@ class Project:
         my_cmd = shlex.split("gcloud projects get-ancestors " + self.id + " --format json")
         try:
             results = subprocess.check_output(my_cmd)
-        except ChildProcessError:
+        except subprocess.CalledProcessError as e:
             logging.error("Unable to load ancestors for project {0}".format(self.id))
+            logging.error(str(e))
             return
         return json.loads(results)
 
@@ -280,8 +283,9 @@ class Role:
             my_cmd = shlex.split("gcloud beta iam roles describe " + self.name + " --format json")
         try:
             results = subprocess.check_output(my_cmd)
-        except ChildProcessError:
+        except subprocess.CalledProcessError as e:
             logging.error("Unable to describe IAM role {0}".format(self.name))
+            logging.error(str(e))
             return
         role_data = json.loads(results)
         self.permissions = role_data['includedPermissions']

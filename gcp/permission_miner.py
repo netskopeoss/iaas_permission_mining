@@ -119,6 +119,9 @@ def main():
     processor = Processor()
     graph = GraphTool()
     processor.load_projects()
+    if len(processor.projects) == 0:
+        logging.error("No projects found. Exiting.")
+        sys.exit()
     processor.build_hierarchy()
     processor.traverse_hierarchy()
     graph = graph_resources(processor, graph)
