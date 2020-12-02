@@ -1,31 +1,3 @@
-'''
-# Copyright 2020 Netskope, Inc.
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
-# following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
-# disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
-# disclaimer in the documentation and/or other materials provided with the distribution.
-# 
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote
-# products derived from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Written by Colin Estep
-'''
-
-'''
-This module populates the GCP objects.
-'''
 import sys
 import shlex
 import subprocess
@@ -33,12 +5,43 @@ import json
 import logging
 from gcp import Organization, Folder, Project, Member
 
+"""
+Copyright 2020 Netskope, Inc.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote
+products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Written by Colin Estep
+"""
+
+"""
+This module populates the GCP objects.
+"""
+
 def merge_dictionaries(dict1, dict2):
+    """Merge dictionaries together, for the case of aggregating bindings."""
     new_dict = dict1.copy()
     new_dict.update(dict2)
     return new_dict
 
 def merge_bindings(dict1, dict2):
+    """Merge bindings together for potential privilege escalation."""
     new_dict = merge_dictionaries(dict1, dict2)      
     for scope in [ 'organization', 'folder', 'project', 'service_account' ]:
         if len(dict1[scope]) > 0:
@@ -63,16 +66,16 @@ def merge_bindings(dict1, dict2):
     return new_dict
     
 class Processor:
+    """Main class for manipulating the GCP objects."""
     def __init__(self):
+        """Prepare this object to hold information about the GCP members and resource hierarchy."""
         self.organizations = list()
         self.folders = list()
         self.projects = list()
         self.members = list()
         
     def add_child(self, parent, child):
-        '''
-        Adds a child to a parent object.
-        '''
+        """Adds a child to a parent object."""
         if isinstance(parent, (Organization, Folder)):
             if isinstance(child, Project):
                 parent.add_project(child)
@@ -80,34 +83,32 @@ class Processor:
                 parent.add_folder(child)
         
     def load_projects(self):
-        '''
-        Load the list of projects from GCP.
-        '''
+        """Load the list of projects from GCP."""
         my_cmd = shlex.split('gcloud projects list --format json')
         try:
             results = subprocess.check_output(my_cmd)
-        except:
-            logging.error("Encountered an error when running {0}".format(my_cmd))
+        except ChildProcessError:
+            logging.error("Unable to list GCP projects.")
             return
         for project in json.loads(results):
             self.projects.append(Project(project))
 
     def build_hierarchy(self):
-        '''
+        """
         Model the hierarchy of the GCP environment.
         This function starts at the project level
         because there should always be a project.
-        '''
+        """
         for project in self.projects:
             self.__load_ancestors__(project)
 
     def __load_ancestors__(self, child):
-        '''
+        """
         Load the ancestors for a given project.
         Place the projects under the organization or folder(s).
         This is recursive, so if a project is under multiple folders,
         it should load all of the folders in order.
-        '''
+        """
         ancestor_list = child.load_ancestors()
         for ancestor in ancestor_list:
             if ancestor['type'] == "folder":
@@ -119,17 +120,19 @@ class Processor:
                 self.add_child(parent, child)
                     
     def __add_folder__(self, folder_id):
-        parent_folder = self.get_folder(folder_id)
-        if not parent_folder:
+        """Add a folder to the resource hierarchy."""
+        folder = self.get_folder(folder_id)
+        if not folder:
             my_cmd = shlex.split("gcloud resource-manager folders describe " + folder_id + " --format json")
             try:
                 results = subprocess.check_output(my_cmd)
-            except:
-                logging.error("Encountered an error when running {0}".format(my_cmd))
+            except ChildProcessError:
+                logging.error("Unable to describe Folder {0}".format(folder_id))
                 return
-            parent_folder = Folder(json.loads(results))
-            self.folders.append(parent_folder)
-        return parent_folder
+            folder = Folder(json.loads(results))
+            self.folders.append(folder)
+            #TODO: Does this make sense?
+        return folder
 
     def __add_organization__(self, organization_id):
         org = self.get_organization(organization_id)
@@ -137,8 +140,8 @@ class Processor:
             my_cmd = shlex.split("gcloud organizations describe " + organization_id + " --format json")
             try:
                 results = subprocess.check_output(my_cmd)
-            except:
-                logging.error("Encountered an error when running {0}".format(my_cmd))
+            except ChildProcessError:
+                logging.error("Unable to describe Organization {0}".format(organization_id))
                 return
             org = Organization(json.loads(results))
             self.organizations.append(org)

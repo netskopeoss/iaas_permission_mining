@@ -1,3 +1,4 @@
+<img src="https://www.netskope.com/wp-content/uploads/2020/03/netskope-threat-labs.png" alt="Netskope Threat Labs logo" width="200"/>
 <h1>README</h1>
 <h2>Permission Mining Tool for GCP</h2>
 <h3>Introduction</h3>

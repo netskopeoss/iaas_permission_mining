@@ -1,31 +1,3 @@
-'''
-# Copyright 2020 Netskope, Inc.
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
-# following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
-# disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
-# disclaimer in the documentation and/or other materials provided with the distribution.
-# 
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote
-# products derived from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Written by Colin Estep
-'''
-
-'''
-Main execution for the GCP permission mining project.
-'''
 import datetime
 import logging
 import argparse
@@ -35,11 +7,38 @@ import json
 from graph_tool import GraphTool
 from processor import Processor
 
+"""
+Copyright 2020 Netskope, Inc.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote
+products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Written by Colin Estep
+"""
+
+"""Main execution for the GCP permission mining project."""
+
 def find_external_members(processor):
-    '''
+    """
     Look at all the members and try to determine
     if any of them are from outside the Organization.
-    '''
+    """
     org_list = processor.get_org_names()
     for org in org_list:
         logging.info("Looking for members outside of {0}".format(org))
@@ -55,9 +54,7 @@ def find_external_members(processor):
             member.set_external_member(False)
     
 def graph_resources(processor, graph):
-    '''
-    Create graph with the overall hierarchy of resources.
-    '''
+    """Create graph with the overall hierarchy of resources."""
     if len(processor.organizations) > 0:
         for org in processor.organizations:
             graph.graph_organization(org)
@@ -70,9 +67,7 @@ def graph_resources(processor, graph):
     return graph
 
 def graph_members(processor, graph):
-    '''
-    Add members to the graph with privilege escalation potential.
-    '''
+    """"Add members to the graph with privilege escalation potential."""
     sa_members = processor.get_sa_members()
     logging.info("Found {0} service account members.".format(len(sa_members)))
     for member in sa_members:
@@ -80,26 +75,29 @@ def graph_members(processor, graph):
     return sa_members
         
 def find_indirect_permissions(processor, graph, member_list):
-    '''
+    """
     Find service accounts that members can access.
     Set the indirect bindings for those members.
-    '''
+    """
     for member in member_list:
         service_account_list = graph.query_data(member)
         processor.set_member_indirect_bindings(service_account_list, member)
     return processor
 
 def remove_file(file_name):
+    """Removes a file."""
     if os.path.exists(file_name):
         print ("WARNING: Deleting file: {0}".format(file_name))
         os.remove(file_name)
 
 def print_output(processor, file_name):
+    """Print the output of this tool, which is JSON."""
     with open (file_name, "w") as output:
         report_list = [ member.get_member_report() for member in processor.get_members() ]
         json.dump(report_list, output)
 
 def main():
+    """Main execution function."""
     # Check for dependencies first.
     if not os.getenv('NEO4J_PASSWORD'):
         print ("Missing critical environment variable: {0}.".format("NEO4J_PASSWORD"))
